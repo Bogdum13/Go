@@ -5,22 +5,20 @@ import (
 	"math"
 )
 
-// Define the function y = -(sin(2x) + cos(3x))
+// Define the function y = x^(2)- 4 x + 7
 func f(x float64) float64 {
-	return math.Pow(x, 2) - 4 * x + 7 //math.Pow(x, 3) + 2 * math.Pow(x, 2) + x - 1
+	return math.Pow(x, 2) - 4*x + 7
 }
 
 // Bisection method to find the minimum
 func bisection(a, b, epsilon float64) float64 {
 	for math.Abs(b-a) >= epsilon {
 		c := (a + b) / 2
-		//fmt.Println(c)
 		if f(a) < f(b) {
 			b = c // Root lies between a and c
-		} else if f(a) >= f(b) {
-			fmt.Println(c)
+		} else {
 			a = c // Root lies between b and c
-		} 
+		}
 	}
 	return (a + b) / 2 // Approximate root
 }
@@ -32,5 +30,5 @@ func main() {
 	minimum := bisection(a, b, epsilon)
 	minimumValue := f(minimum)
 
-	fmt.Printf("Approximate minimum value: y = %.4f at x = %.4f\n", minimumValue, minimum)
+	fmt.Printf("Approximate minimum value: y = %.3f at x = %.3f\n", minimumValue, minimum)
 }

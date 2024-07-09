@@ -7,25 +7,19 @@ import (
 
 func main() {
 	// Define the search range
-	startX := 0.//-2. / 3.
-	endX := 3.//6.
+	startX := 0.
+	endX := 3.
 	step := 0.001 // Adjust the step size as needed
 
 	// Initialize variables for maximum and minimum values
-	maxY := math.Inf(-1)
 	minY := math.Inf(1)
-	maxX := 0.0
 	minX := 0.0
 
 	// Brute-force search
 	for x := startX; x <= endX; x += step {
-		y :=  math.Pow(x, 2) - 4 * x + 7//math.Pow(x, 3) + 2 * math.Pow(x, 2) + x - 1
+		y := math.Pow(x, 2) - 4*x + 7
 
-		// Update maximum and minimum values
-		if y > maxY {
-			maxY = y
-			maxX = x
-		}
+		// Update minimum values
 		if y < minY {
 			minY = y
 			minX = x
@@ -33,6 +27,5 @@ func main() {
 	}
 
 	// Print results
-	fmt.Printf("Maximum value: y = %.4f at x = %.4f\n", maxY, maxX)
-	fmt.Printf("Minimum value: y = %.4f at x = %.4f\n", minY, minX)
+	fmt.Printf("Minimum value: y = %.3f at x = %.3f\n", minY, minX)
 }
