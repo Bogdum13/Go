@@ -1,0 +1,12 @@
+<h1>Guestbook</h1>
+<!-- The number of entries from the Guestbook structure is inserted. -->
+{{.SignatureCount}} total signatures -
+<a href="/guestbook/new">Add Your Signature</a>
+</div>
+<div>
+<!-- Repeat for each row in the Signatures segment. -->
+{{range .Signatures}}
+<!-- The <p> element containing the current record is inserted -->
+ <p>{{.}}</p>
+{{end}}
+</div>

@@ -7,7 +7,7 @@ import (
 
 // Define the function y = x^2 - 4x + 7
 func f(x float64) float64 {
-	return x*x - 4*x + 7
+	return - math.Sqrt(20 - math.Pow((x-1), 2))  //x*x - 4*x + 7
 }
 
 // Golden-section search to find the minimum value
@@ -35,7 +35,7 @@ func goldenSectionSearch(a, b float64, tol float64) float64 {
 
 func main() {
 	a := 0. // Lower bound
-	b := 3. // Upper bound
+	b := 4. // Upper bound
 	tol := 1e-6 // Tolerance (adjust as needed)
 
 	minimum := goldenSectionSearch(a, b, tol)
