@@ -1,0 +1,268 @@
+https://labs.play-with-k8s.com
+
+#Создаём манифесты для PostgreSQL postgres-deployment.yaml & postgres-service.yaml & postgres-pvc.yaml (Persistent Volume для данных)
+[node1 ~]$ touch postgres-deployment.yaml
+
+[node1 ~]$ cat << EOF >> postgres-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: bogdum/my-go-db:v1
+          env:
+            - name: POSTGRES_PASSWORD
+              value: BogdanBogdum  # Должно совпадать с паролем в Go-приложении  
+            - name: POSTGRES_DB
+              value: app_db        # Имя базы должно совпадать
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-storage
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+EOF
+
+[node1 ~]$ touch postgres-service.yaml 
+
+[node1 ~]$ cat << EOF >> postgres-service.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+spec:
+  selector:
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP  # Доступ только внутри кластера
+EOF
+
+[node1 ~]$ touch postgres-pvc.yaml
+
+[node1 ~]$ cat << EOF >> postgres-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+EOF
+
+
+#Создаём Persistent Volumes (PV) для PostgreSQL вручную
+[node1 ~]$ cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: manual
+  hostPath:
+    path: /mnt/data
+EOF
+persistentvolume/postgres-pv created
+
+
+#Создаём PersistentVolumeClaim (PVC) для PostgreSQL вручную:
+[node1 ~]$ cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+EOF
+persistentvolumeclaim/postgres-pvc configured
+
+
+#Проверка STATUS должен быть Bound
+[node1 ~]$ kubectl get pvc 
+NAME           STATUS   VOLUME        CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+postgres-pvc   Bound    postgres-pv   1Gi        RWO            manual         19m
+
+
+#Создаём манифесты для Go-приложения go-app-deployment.yaml & go-app-service.yaml
+[node1 ~]$ touch go-app-deployment.yaml
+
+[node1 ~]$ cat << EOF >> go-app-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: go-app
+  template:
+    metadata:
+      labels:
+        app: go-app
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - go-app
+              topologyKey: "kubernetes.io/hostname"  # Гарантирует распределение по нодам
+      containers:
+        - name: go-app
+          image: bogdum/my-go-app:v2.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: postgres-service  # Используем имя сервиса PostgreSQL
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: postgres
+            - name: DB_PASSWORD
+              value: BogdanBogdum
+            - name: DB_NAME
+              value: app_db
+EOF
+
+[node1 ~]$ touch go-app-service.yaml
+
+[node1 ~]$ cat << EOF >> go-app-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-app-service
+spec:
+  selector:
+    app: go-app
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: LoadBalancer  # Для доступа извне кластера
+EOF
+
+
+# Примениние всех манифестов
+kubectl apply -f postgres-pvc.yaml
+kubectl apply -f postgres-deployment.yaml
+kubectl apply -f postgres-service.yaml
+kubectl apply -f go-app-deployment.yaml
+kubectl apply -f go-app-service.yaml
+
+
+#Проверка запущенных ресурсов
+kubectl get pods,deployments,services,pvc
+
+
+#Проверка доступа к сервису PostgreSQL внутри кластера. Запуск временного пода с утилитой psql для проверки подключения:
+kubectl run psql-test --rm -it --image=postgres:alpine -- sh
+#Затем внутри контейнера
+PGPASSWORD=BogdanBogdum psql -h postgres-service -U postgres -d app_db
+
+#Определение количетва рабочих нод в кластре
+kubectl get nodes --no-headers | grep -v "control-plane" | wc -l  # Все ноды, кроме control-plane
+
+#Проверить распределение
+kubectl get pods -o wide  # В колонке NODE будут указаны ноды
+
+
+
+
+[node1 ~]$ cat << EOF >> postgres-statefulset.yaml
+> apiVersion: apps/v1
+> kind: StatefulSet
+> metadata:
+>   name: postgres
+> spec:
+>   serviceName: postgres  # Обяз��те��ьно д��я StatefulSet
+>   replicas: 2  # Количество реплик (должно со��тветство��ать колич��ству нод)
+>   selector:
+>     matchLabels:
+>       app: postgres
+>   template:
+>     metadata:
+>       labels:
+>         app: postgres
+>     spec:
+>       affinity:
+>         podAntiAffinity:
+>           requiredDuringSchedulingIgnoredDuringExecution:
+>             - labelSelector:
+>                 matchExpressions:
+>                   - key: app
+>                     operator: In
+>                     values:
+>                       - postgres
+>               topologyKey: "kubernetes.io/hostname"
+>       containers:
+>         - name: postgres
+>           image: bogdum/my-go-db:v1
+>           env:
+>             - name: POSTGRES_PASSWORD
+>               value: BogdanBogdum
+>             - name: POSTGRES_DB
+>               value: app_db
+>           ports:
+>             - containerPort: 5432
+>           volumeMounts:
+>             - name: postgres-storage
+>               mountPath: /var/lib/postgresql/data
+>   volumeClaimTemplates:  # Ав��оматическое создание PVC для каждого пода
+>     - metadata:
+>         name: postgres-storage
+>       spec:
+>         accessModes: [ "ReadWriteOnce" ]
+>         storageClassName: "standard"  # Используйте ваш StorageClass
+>         resources:
+>           requests:
+>             storage: 1Gi
+> EOF
+
+
+
+[node1 ~]$ cat << EOF >> postgres-service.yaml
+> apiVersion: v1
+> kind: Service
+> metadata:
+>   name: postgres
+> spec:
+>   clusterIP: None  # Headless-сервис (обязательно для StatefulSet)
+>   selector:
+>     app: postgres
+>   ports:
+>     - port: 5432
+>       targetPort: 5432
+> EOF

@@ -36,7 +36,7 @@ func check(err error) {
 
 // As usual, the ResponseWriter value is passed to the handler functions.. ..as well as a pointer to the Request value
 func viewHandler(writer http.ResponseWriter, request *http.Request) {
-	// answers := getStrings("add_number.txt") // Adding the getstring call
+
 
 	psqlconn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, pasword, dbname)
 	db, err := sql.Open("postgres", psqlconn)
@@ -44,9 +44,6 @@ func viewHandler(writer http.ResponseWriter, request *http.Request) {
 
 	defer db.Close()
 
-	// insertDunStmt := `select from "add_number" ("lower_bound", "upper_bound", "minimum_y", "minimum_x") values($1, $2, $3, $4)`
-	// _, err = db.Exec(insertDunStmt, lower_bound, upper_bound, f(minimum), minimum)
-	// CheckError(err)
 
 	// Выполнение SELECT-запроса
 	rows, err := db.Query("SELECT lower_bound, upper_bound, minimum_y, minimum_x FROM add_number")
@@ -78,10 +75,10 @@ func viewHandler(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	// Вывод результатов
-	for _, add_number := range add_number {
-		fmt.Printf("Lower_bound: %f Upper_bound: %f Minimum_y: %f Minimum_x: %f\n", add_number.Lower_bound,
-			add_number.Upper_bound, add_number.Minimum_y, add_number.Minimum_x)
-	}
+	// for _, add_number := range add_number {
+	// 	fmt.Printf("Lower_bound: %f Upper_bound: %f Minimum_y: %f Minimum_x: %f\n", add_number.Lower_bound,
+	// 		add_number.Upper_bound, add_number.Minimum_y, add_number.Minimum_x)
+	// }
 
 	// Получение количества строк
 	var coun int
@@ -128,21 +125,6 @@ func viewHandler(writer http.ResponseWriter, request *http.Request) {
 	err = html.Execute(writer, nil)
 	check(err)
 
-	// answers := getStrings("add_number.txt") // Adding the getstring call
-
-	// //fmt.Printf("%#v\n", answers) // We display the uploaded records.
-	// html, err := template.ParseFiles("view.html")
-	// check(err)
-	// // Creating a new App structure
-	// app := App{
-	// 	// The Answers Count field stores the length of the record segment.
-	// 	AnswersCount: len(answers),
-	// 	//The Answers s field stores the record segment itself.
-	// 	Answers: answers,
-	// }
-	// // The structure is passed to the Execute method of the Template value.
-	// err = html.Execute(writer, app)
-	// check(err)
 }
 
 // Adding another handler function with the same parameters as the ViewHandler
@@ -237,20 +219,21 @@ func main() {
 
 	defer db.Close()
 
-	insertStmt := `insert into "Employee"("Name", "EmpId") values('Bogdum', 13)`
-	_, err = db.Exec(insertStmt)
-	CheckError(err)
-
-	insertDunStmt := `insert into "Employee"("Name", "EmpId") values($1, $2)`
-	_, err = db.Exec(insertDunStmt, "Lu", 16)
-	CheckError(err)
-
 	http.HandleFunc("/answer", viewHandler)
 	// We assign the new Handler function to process requests with the path "/answer/new".
 	http.HandleFunc("/answer/new", newHandler)
 	http.HandleFunc("/answer/create", createHandler)
 	er := http.ListenAndServe("localhost:8080", nil)
 	log.Fatal(er)
+    http.HandleFunc("/answer/new", func(w http.ResponseWriter, r *http.Request) {
+        w.Write([]byte("Hello from Go!"))
+    })
+
+    // Слушаем все интерфейсы (0.0.0.0) на порту 8080
+    err = http.ListenAndServe("0.0.0.0:8080", nil)
+    if err != nil {
+        panic(err)
+    }
 }
 
 func CheckError(err error) {
